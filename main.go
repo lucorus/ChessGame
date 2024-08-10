@@ -2,10 +2,21 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"runtime"
 )
 
-var type_sumbols string = "letters"
 
+const (
+  type_sumbols = "letters"
+  Reset = "\033[0m"
+  // цвета, которые будут использоваться при выводе в консоль
+  Error = "\033[31m"
+  Info = "\033[36m"
+)
+
+var number_motion int = 1
 var min_index_white_chess_figure uint64
 var max_index_white_chess_figure uint64
 var min_index_black_chess_figure uint64
@@ -13,6 +24,32 @@ var max_index_black_chess_figure uint64
 var white_king, white_queen, white_rook, white_elephant, white_horse, white_pawns rune
 var black_king, black_queen, black_rook, black_elephant, black_horse, black_pawns rune
 var empty_cell rune = '_'
+var clear map[string]func() //create a map for storing clear funcs
+
+
+func init() {
+    clear = make(map[string]func())
+    clear["linux"] = func() { 
+        cmd := exec.Command("clear")
+        cmd.Stdout = os.Stdout
+        cmd.Run()
+    }
+    clear["windows"] = func() {
+        cmd := exec.Command("cmd", "/c", "cls")
+        cmd.Stdout = os.Stdout
+        cmd.Run()
+    }
+}
+
+
+func ClearConsole() {
+    value, ok := clear[runtime.GOOS]
+    if ok { 
+        value()
+    } else {
+        panic("Your platform is unsupported!")
+    }
+}
 
 
 func abs(num int64) int64 {
@@ -93,18 +130,14 @@ func IsWhiteFigure(field [10][10]rune, x int, y int) bool {
 // Проверяет что находиться в клетке с координатами (end_x, end_y)
 func WhatIs(field [10][10]rune, start_x int, start_y int, end_x int, end_y int) string {
   if end_x < 2 || end_x > 9 || end_y < 2 || end_y > 9 {
-    fmt.Println("OUT_FIELD")
     return "out_field"
   }
 
   if field[end_y][end_x] == empty_cell {
-    fmt.Println("EMPTY")
     return "empty"
   } else if IsWhiteFigure(field, start_x, start_y) == IsWhiteFigure(field, end_x, end_y) {
-    fmt.Println("ALLY")
     return "ally"
   }
-  fmt.Println("ENEMY")
   return "enemy"
 }
 
@@ -208,7 +241,6 @@ func IsValidElephantMotion(field [10][10]rune, start_x int, start_y int, end_x i
   }
   fmt.Println(WhatIs(field, start_x, start_y, end_x, end_y))
   if abs(int64(start_x) - int64(end_x)) != abs(int64(start_y) - int64(end_y)) {
-    fmt.Println("Конечная точка находится не на диагонали")
     return false
   }
 
@@ -327,9 +359,6 @@ func DistributionActions(field *[10][10]rune, start_x int, start_y int, end_x in
       DoMotion(field, start_x, start_y, end_x, end_y)
       return true
     }
-
-  default:
-    fmt.Println("Фигура не найдена")
   }
   return false
 }
@@ -350,21 +379,42 @@ func main() {
     {'7','|', white_pawns, white_pawns, white_pawns, white_pawns, white_pawns, white_pawns, white_pawns, white_pawns},
     {'8','|', white_rook, white_horse, white_elephant, white_queen, white_king, white_elephant, white_horse, white_rook}}
 
+  PrintField(field)
   for {
-    PrintField(field)
     var start_x, start_y, end_x, end_y int
-    fmt.Println("Введите координаты шахматной фигуры, которой будете ходить")
+  
+    if number_motion % 2 == 1 {
+      fmt.Println("Ход белых")
+    } else {
+      fmt.Println("Ход чёрных")
+    }
+    fmt.Printf("Введите координаты шахматной фигуры, %sкоторой будуте ходить%s \n", Info, Reset)
+
     fmt.Scan(&start_x, &start_y)
-    if start_x > 8 || start_x < 1 || start_y > 8 || start_y < 1 {
+    if start_x > 8 || start_x < 1 || start_y > 8 || start_y < 1 || field[start_y+1][start_x+1] == empty_cell {
+      fmt.Println(Error, "Ошибка введёных данных", Reset)
       continue
     }
+    if (number_motion % 2 == 0 && IsWhiteFigure(field, start_x+1, start_y+1)) || (number_motion % 2 == 1 && IsWhiteFigure(field, start_x+1, start_y+1) == false) {
+      fmt.Println(Error, "Сейчас не ваш ход", Reset)
+      continue
+    }
+
     fmt.Printf("Вы выбрали фигуру - %c \n", field[start_y+1][start_x+1])
-    fmt.Println("Введите координаты клетки, в которую собираетесь сходить")
+    fmt.Printf("Введите координаты клетки, %sв которую собираетесь ходить%s \n", Info, Reset)
     fmt.Scan(&end_x, &end_y)
+
     if WhatIs(field, start_x+1, start_y+1, end_x+1, end_y+1) == "out_field" || WhatIs(field, start_x+1, start_y+1, end_x+1, end_y+1) == "ally" {
+      fmt.Println(Error, "В эту клетку нельзя сходить", Reset)
       continue
     }
-    DistributionActions(&field, start_x+1, start_y+1, end_x+1, end_y+1)
-    // fmt.Print("\033[H\033[2J")
+    if DistributionActions(&field, start_x+1, start_y+1, end_x+1, end_y+1) {
+      // если игрок сделал ход, то передаём ход другому
+      number_motion++
+      ClearConsole()
+      PrintField(field)
+    } else {
+      fmt.Println(Error, "Ошибка введёных данных", Reset)
+    }
   }
 }
