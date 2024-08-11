@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"time"
 )
 
 
@@ -14,6 +15,7 @@ const (
   // цвета, которые будут использоваться при выводе в консоль
   Error = "\033[31m"
   Info = "\033[36m"
+  Win = "\033[32m"
 )
 
 var number_motion int = 1
@@ -107,13 +109,117 @@ func SetSumbolsForFigures(type_sumbols string) {
 }
 
 
+func PointsForChessFigure(figure rune) int {
+  switch figure {
+    case white_pawns:
+      return 1
+    case black_pawns:
+      return 1
+
+    case white_rook:
+      return 5
+    case black_rook:
+      return 5
+
+    case white_horse:
+      return 3
+    case black_horse:
+      return 3
+
+    case white_elephant:
+      return 3
+    case black_elephant:
+      return 3
+
+    case white_queen:
+      return 9
+    case black_queen:
+      return 9
+
+    case white_king:
+      return 100
+    case black_king:
+      return 100
+    }
+  return 0
+}
+
 
 func PrintField(field [10][10]rune) {
-  for _, line := range field {
-      for _, item := range line {
-        fmt.Printf("%c ", item)
+  fmt.Printf("Ход номер: %s%d%s", Info, number_motion, Reset)
+  if number_motion % 2 == 1 {
+    fmt.Printf("\t%s(ход белых)%s\n", Info, Reset)
+  } else {
+    fmt.Printf("\t %s(ход чёрных)%s\n", Info, Reset)
+  }
+
+  white_figures_points := 0
+  black_figures_points := 0
+
+  for i := 0; i < len(field); i++ {
+    for j := 0; j < len(field[i]); j++ {
+      if IsWhiteFigure(field, j, i) {
+        white_figures_points += PointsForChessFigure(field[i][j])
+      } else {
+        black_figures_points += PointsForChessFigure(field[i][j])
       }
-      fmt.Println()
+      fmt.Printf("%c ", field[i][j])
+    }
+    fmt.Println()
+  }
+  fmt.Printf("Кол-во баллов у белых: %s%d%s\n", Info, white_figures_points-100, Reset)
+  fmt.Printf("Кол-во баллов у чёрных: %s%d%s\n\n", Info, black_figures_points-100, Reset)
+  if white_figures_points < 100 {
+    fmt.Printf("%sКоманда белых выйграла!!!%s", Win, Reset)
+    time.Sleep(10 * time.Second)
+    os.Exit(0)
+  }
+  if black_figures_points < 100 {
+    fmt.Printf("%sКоманда чёрных выйграла!!!%s", Win, Reset)
+    time.Sleep(10 * time.Second)
+    os.Exit(0)
+  }
+}
+
+
+func ChangeFigure(field *[10][10]rune, x int, y int) {
+  figure_changed := true
+  fmt.Printf("%sПоздравляем, вы дошли до конца поля!%s \nВыберите шахматную фигуру: %s(h - конь, e - слон, r - тура, q - королева)%s\n", Win, Reset, Info, Reset)
+  for ; figure_changed; {
+    var figure string
+    fmt.Scan(&figure)
+    switch figure {
+    case "h":
+      if IsWhiteFigure(*field, x+1, y+1) {
+        field[y+1][x+1] = white_horse
+      } else {
+        field[y+1][x+1] = black_horse
+      }
+      figure_changed = false
+    case "e":
+      if IsWhiteFigure(*field, x+1, y+1) {
+        field[y+1][x+1] = white_elephant
+      } else {
+        field[y+1][x+1] = black_elephant
+      }
+      figure_changed = false
+    case "r":
+      if IsWhiteFigure(*field, x+1, y+1) {
+        field[y+1][x+1] = white_rook
+      } else {
+        field[y+1][x+1] = black_rook
+      }
+      figure_changed = false
+    case "q":
+      if IsWhiteFigure(*field, x+1, y+1) {
+        field[y+1][x+1] = white_queen
+      } else {
+        field[y+1][x+1] = black_queen
+      }
+      figure_changed = false
+    default:
+      fmt.Printf("%sВы ввели некорректные данные!%s\n", Error, Reset)
+    }
   }
 }
 
@@ -382,12 +488,6 @@ func main() {
   PrintField(field)
   for {
     var start_x, start_y, end_x, end_y int
-  
-    if number_motion % 2 == 1 {
-      fmt.Println("Ход белых")
-    } else {
-      fmt.Println("Ход чёрных")
-    }
     fmt.Printf("Введите координаты шахматной фигуры, %sкоторой будуте ходить%s \n", Info, Reset)
 
     fmt.Scan(&start_x, &start_y)
@@ -410,6 +510,10 @@ func main() {
     }
     if DistributionActions(&field, start_x+1, start_y+1, end_x+1, end_y+1) {
       // если игрок сделал ход, то передаём ход другому
+      if (field[end_y+1][end_x+1] == white_pawns && end_y == 1) || (field[end_y+1][end_x+1] == black_pawns && end_y == 8) {
+        // игрок дошёл до конца поля пешкой
+        ChangeFigure(&field, end_x, end_y)
+      }
       number_motion++
       ClearConsole()
       PrintField(field)
